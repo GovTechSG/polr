@@ -20,6 +20,23 @@ RUN php composer.phar install --no-dev --no-autoloader
 COPY . /usr/app/src/
 RUN set -x \
     && php composer.phar dump-autoload -o --no-dev \
-    && sed -i 's#/var/www/#/usr/app/src/public/#g' $APACHE_CONFDIR/conf-available/docker-php.conf
-
-EXPOSE 80
+    && { \
+          echo '<FilesMatch \.php$>'; \
+          echo '\tSetHandler application/x-httpd-php'; \
+          echo '</FilesMatch>'; \
+          echo; \
+          echo 'DirectoryIndex disabled'; \
+          echo 'DirectoryIndex index.php index.html'; \
+          echo; \
+          echo '<Directory /usr/app/src/public/>'; \
+          echo '\tRequire all granted'; \
+          echo '\tOptions Indexes FollowSymLinks'; \
+          echo '\tAllowOverride All'; \
+          echo '\tOrder allow,deny'; \
+          echo '\tAllow from all'; \
+          echo '</Directory>'; \
+          } | tee "$APACHE_CONFDIR/conf-available/polr.conf" \
+    && a2enconf polr \
+    && sed -i 's#/var/www/html#/usr/app/src/public/#g' "${APACHE_CONFDIR}/sites-enabled/000-default.conf" \
+    && . "$APACHE_ENVVARS" \
+    && chown -R "$APACHE_RUN_USER:$APACHE_RUN_GROUP" .
